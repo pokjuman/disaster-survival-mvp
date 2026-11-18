@@ -30,17 +30,11 @@
     const p = gameState.player;
     const s = gameState.scavenge;
 
-    // 쉼터 & 전투: HP / 탄약 / 붕대
+    // 쉼터: HP / 탄약 / 붕대
     setText('shelter-hp', `${p.hp}/${p.maxHp}`);
     setText('shelter-ammo', String(p.ammo));
     setText('shelter-bandage', String(p.bandages));
-
-    setText('combat-hp', `${p.hp}/${p.maxHp}`);
-    setText('combat-ap', `${p.ap}/${p.maxAp}`);
-    setText('combat-ammo', String(p.ammo));
-    setText('combat-bandage', String(p.bandages));
-    setText('combat-enemy-name', gameState.enemy.name);
-    setText('combat-enemy-hp', `${gameState.enemy.hp}/${gameState.enemy.maxHp}`);
+    // 전투 화면 라벨은 combat 매니저가 renderCombat 에서 직접 갱신한다(T3).
 
     // 탐사: 소음 게이지 + 방 번호
     setText('scavenge-room', String(s.currentRoom));
@@ -85,6 +79,9 @@
 
     // 상단 바 현재 화면 이름 갱신
     setText('current-screen-name', SCREEN_LABEL[next]);
+
+    // 전투 화면 진입 시 새 교전 시작(T3 standalone — scavenge 상태 인계는 T4).
+    if (next === Screen.COMBAT) startCombat();
 
     // 화면이 바뀔 때마다 상태 라벨을 다시 그려 항상 최신값을 보인다.
     renderStateLabels();
@@ -212,10 +209,217 @@
     if (sortieBtn) sortieBtn.addEventListener('click', startSortie);
   }
 
+  // --- 전투(COMBAT) 배선 — T3 -------------------------------------------------
+  // combat.js(시드 포팅)의 매니저를 전투 화면 UI 에 연결한다. 수치/공식/AI 는
+  // 전부 combat.js 에 있고, 여기서는 그리드 렌더·탭 입력·버튼 게이팅·로그만 맡는다.
+  // scavenge→combat 상태 인계와 귀환 정산은 T4 범위라 넣지 않는다.
+  const CombatMod = window.Combat;
+  let combat = null;             // 현재 교전 인스턴스(진입마다 새로)
+  let enemyTurnBusy = false;     // 적 턴 연출 중 입력 잠금
+
+  // 새 교전 시작 — 시드 standalone 기본값(적 70). 적 이름은 매복에서 온 값이
+  // 있으면 쓰되, 없으면 전투 시드값. (이름 불일치는 T4 확인 항목)
+  function startCombat() {
+    enemyTurnBusy = false;
+    const enemyName = gameState.enemy && gameState.enemy.name ? gameState.enemy.name : undefined;
+    combat = CombatMod.createCombat({ enemyName: enemyName });
+
+    combat.on('log', (msg) => setText('combat-log', msg));
+    combat.on('ended', (victory, scrap) => showResult(victory, scrap));
+
+    hideResult();
+    buildGrid();
+    setText('combat-log', '플레이어 턴 — 행동을 선택하세요.');
+    renderCombat();
+  }
+
+  // 6×6 셀 DOM 생성(최초 1회 구성 후 renderCombat 가 클래스/토큰만 갱신)
+  function buildGrid() {
+    const grid = document.getElementById('combat-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+    for (let y = 0; y < CombatMod.GRID_SIZE; y++) {
+      for (let x = 0; x < CombatMod.GRID_SIZE; x++) {
+        const cell = document.createElement('div');
+        cell.className = 'cell';
+        cell.setAttribute('role', 'gridcell');
+        cell.dataset.x = String(x);
+        cell.dataset.y = String(y);
+        cell.addEventListener('click', () => onCellTap(x, y, cell));
+        grid.appendChild(cell);
+      }
+    }
+  }
+
+  // 셀 탭 — 합법 이동이면 수행, 아니면 규칙이 거부 + UI 피드백(완료 판정 #3)
+  function onCellTap(x, y, cell) {
+    if (!combat || combat.state.ended || enemyTurnBusy) { rejectCell(cell); return; }
+    const moved = combat.tryMovePlayer(x, y);
+    if (moved) {
+      setText('combat-log', `이동 → (${x},${y})  AP -1`);
+      renderCombat();
+    } else {
+      // 비인접·막힌 타일·AP 부족 등: 규칙이 false 반환 → UI 거부 피드백
+      rejectCell(cell);
+      setText('combat-log', '이동 불가 — 인접한 빈 타일만, AP 1 필요.');
+    }
+  }
+
+  function rejectCell(cell) {
+    if (!cell) return;
+    cell.classList.remove('cell--reject');
+    void cell.offsetWidth; // 리플로우로 애니메이션 재시작
+    cell.classList.add('cell--reject');
+  }
+
+  const cellKey = (x, y) => `[data-x="${x}"][data-y="${y}"]`;
+
+  // 그리드/스탯/버튼 전체 렌더
+  function renderCombat() {
+    if (!combat) return;
+    const s = combat.state;
+    const grid = document.getElementById('combat-grid');
+    if (!grid) return;
+
+    const legal = {};
+    combat.legalMoves().forEach((m) => { legal[CombatMod.key(m.x, m.y)] = true; });
+
+    for (let y = 0; y < CombatMod.GRID_SIZE; y++) {
+      for (let x = 0; x < CombatMod.GRID_SIZE; x++) {
+        const cell = grid.querySelector(cellKey(x, y));
+        if (!cell) continue;
+        cell.className = 'cell';
+        const k = CombatMod.key(x, y);
+
+        // 엄폐/위험 타일
+        const cov = combat.covers[k];
+        if (cov === CombatMod.CoverType.FULL) cell.classList.add('cell--cover-full');
+        else if (cov === CombatMod.CoverType.HALF) cell.classList.add('cell--cover-half');
+        if (combat.hazards[k] === CombatMod.HazardType.RADIATION) cell.classList.add('cell--radiation');
+
+        // 합법 이동 하이라이트
+        if (legal[k]) cell.classList.add('cell--legal');
+
+        // 토큰(플레이어/적)
+        cell.innerHTML = '';
+        if (x === s.player.x && y === s.player.y) cell.appendChild(makeToken('player', '나'));
+        else if (x === s.enemy.x && y === s.enemy.y) cell.appendChild(makeToken('enemy', '敵'));
+        else if (combat.hazards[k] === CombatMod.HazardType.RADIATION) cell.textContent = '☢';
+        else if (cov === CombatMod.CoverType.FULL) cell.textContent = '▲';
+        else if (cov === CombatMod.CoverType.HALF) cell.textContent = '△';
+      }
+    }
+
+    // 적 카드 + HP 바
+    setText('combat-enemy-name', s.enemy.name);
+    setText('combat-enemy-hp', `${s.enemy.hp}/${s.enemy.maxHp}`);
+    const ehpFill = document.getElementById('combat-enemy-hp-fill');
+    if (ehpFill) ehpFill.style.width = pct(s.enemy.hp, s.enemy.maxHp) + '%';
+
+    // 플레이어 스탯
+    setText('combat-hp', `${s.player.hp}/${s.player.maxHp}`);
+    setText('combat-ammo', String(s.ammo));
+    setText('combat-bandage', String(s.bandages));
+    setText('combat-ap', `${s.ap}/${s.maxAp}`);
+    renderApDots(s.ap, s.maxAp);
+
+    // 버튼 게이팅: AP/탄약/붕대·내 턴·종료 여부
+    const canAct = s.isPlayerTurn && !s.ended && !enemyTurnBusy;
+    gate('btn-quick-shot', canAct && s.ap >= 2 && s.ammo >= 1);
+    gate('btn-aimed-shot', canAct && s.ap >= 4 && s.ammo >= 1);
+    gate('btn-first-aid', canAct && s.ap >= 3 && s.bandages >= 1);
+    gate('btn-end-turn', canAct);
+  }
+
+  function makeToken(kind, label) {
+    const t = document.createElement('div');
+    t.className = 'token token--' + kind;
+    t.textContent = label;
+    return t;
+  }
+
+  function pct(cur, max) { return Math.max(0, Math.min(100, (cur / max) * 100)); }
+
+  function renderApDots(ap, maxAp) {
+    const box = document.getElementById('combat-ap-dots');
+    if (!box) return;
+    box.innerHTML = '';
+    for (let i = 0; i < maxAp; i++) {
+      const d = document.createElement('span');
+      d.className = 'ap-dot' + (i < ap ? ' ap-dot--on' : '');
+      box.appendChild(d);
+    }
+  }
+
+  function gate(id, enabled) {
+    const el = document.getElementById(id);
+    if (el) el.disabled = !enabled;
+  }
+
+  // 행동 버튼 실행. 게이팅으로 못 누르게 하되, 혹시 호출돼도 combat 이 false 반환.
+  function doAction(kind) {
+    if (!combat || combat.state.ended || enemyTurnBusy) return;
+    let done = false;
+    if (kind === 'quick') done = combat.actionQuickShot();
+    else if (kind === 'aimed') done = combat.actionAimedShot();
+    else if (kind === 'aid') done = combat.actionFirstAid();
+    else if (kind === 'end') { endTurn(); return; }
+
+    if (!done) {
+      setText('combat-log', '행동 불가 — AP·탄약·붕대를 확인하세요.');
+    }
+    renderCombat();
+  }
+
+  // 턴 종료 → 적 턴(짧은 연출 지연). 지연 동안 입력 잠금.
+  function endTurn() {
+    if (!combat || combat.state.ended) return;
+    enemyTurnBusy = true;
+    combat.endPlayerTurn(0); // 로직은 즉시(결정론), 연출만 분리
+    renderCombat();          // is_player_turn=false 반영(버튼 잠금)
+    setText('combat-log', '적 턴…');
+    // 짧은 연출 후 결과 반영(시드 0.6s 느낌). 이미 state 는 갱신됨.
+    setTimeout(() => {
+      enemyTurnBusy = false;
+      renderCombat();
+    }, ENEMY_TURN_DELAY_MS);
+  }
+  const ENEMY_TURN_DELAY_MS = 500; // 임의값(T3): 연출 지연. 로직엔 영향 없음.
+
+  function showResult(victory, scrap) {
+    const panel = document.getElementById('combat-result');
+    if (panel) {
+      panel.hidden = false;
+      panel.setAttribute('aria-hidden', 'false');
+      panel.classList.toggle('is-defeat', !victory);
+    }
+    setText('combat-result-title', victory ? '승리' : '패배');
+    setText('combat-result-detail', victory
+      ? `전리품 고철 +${scrap} 획득 (귀환 정산은 T4)`
+      : '쉼터로 돌아가지 못했다.');
+    renderCombat();
+  }
+
+  function hideResult() {
+    const panel = document.getElementById('combat-result');
+    if (panel) {
+      panel.hidden = true;
+      panel.setAttribute('aria-hidden', 'true');
+      panel.classList.remove('is-defeat');
+    }
+  }
+
+  function wireCombat() {
+    document.querySelectorAll('[data-action]').forEach((btn) => {
+      btn.addEventListener('click', () => doAction(btn.getAttribute('data-action')));
+    });
+  }
+
   // --- 초기화 ----------------------------------------------------------------
   function init() {
     wireNav();
     wireScavenge();
+    wireCombat();
     goToScreen(gameState.meta.currentScreen); // 시작 화면 표시 + 라벨 렌더
   }
 
@@ -229,4 +433,5 @@
   window.goToScreen = goToScreen;
   window.renderStateLabels = renderStateLabels;
   window.scavManager = scav; // T2 탐사 매니저(디버그·테스트용)
+  window.getCombat = () => combat; // T3 전투 매니저(디버그·테스트용)
 })();
