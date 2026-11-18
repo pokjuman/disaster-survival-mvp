@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <!-- 모바일 우선: 더블탭 줌/핀치 줌 차단으로 터치 내비 안정화 -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="theme-color" content="#0b0e10">
+  <title>재난생존 MVP — 프로토타입 골격</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <!-- 상단 바: 현재 화면 이름 표시 -->
+  <header class="topbar">
+    <span class="topbar__title">재난생존</span>
+    <span class="topbar__screen">현재: <strong id="current-screen-name">쉼터</strong></span>
+  </header>
+
+  <main class="stage">
+
+    <!-- ============ 쉼터 (SHELTER) ============ -->
+    <section id="screen-shelter" class="screen" aria-hidden="false">
+      <h1 class="screen__title">쉼터</h1>
+      <p class="screen__sub">임시 거처. 출정 준비를 한다.</p>
+
+      <div class="stat-row">
+        <div class="stat"><span class="stat__label">HP</span><span class="stat__value" id="shelter-hp">—</span></div>
+        <div class="stat"><span class="stat__label">탄약</span><span class="stat__value" id="shelter-ammo">—</span></div>
+        <div class="stat"><span class="stat__label">붕대</span><span class="stat__value" id="shelter-bandage">—</span></div>
+      </div>
+
+      <div class="screen__spacer"></div>
+
+      <nav class="nav">
+        <button class="btn btn--primary" data-goto="SCAVENGE">출정 ▶</button>
+      </nav>
+    </section>
+
+    <!-- ============ 탐사 (SCAVENGE) ============ -->
+    <section id="screen-scavenge" class="screen" aria-hidden="true">
+      <h1 class="screen__title">탐사</h1>
+      <p class="screen__sub">폐건물을 방 단위로 수색한다. 소음이 쌓이면 매복이 온다.</p>
+
+      <div class="stat-row">
+        <div class="stat"><span class="stat__label">방</span><span class="stat__value" id="scavenge-room">—</span></div>
+        <div class="stat"><span class="stat__label">소음</span><span class="stat__value" id="scavenge-noise-value">—</span></div>
+      </div>
+
+      <!-- 소음 게이지(자리표시 — T2 에서 로직 연결) -->
+      <div class="gauge" role="img" aria-label="소음 게이지">
+        <div class="gauge__fill" id="scavenge-noise-fill"></div>
+      </div>
+      <p class="hint">소음 게이지 (T2 에서 수색 로직 연결)</p>
+
+      <div class="screen__spacer"></div>
+
+      <nav class="nav nav--split">
+        <button class="btn btn--ghost" data-goto="SHELTER">◀ 귀환</button>
+        <button class="btn btn--primary" data-goto="COMBAT">전투 진입 ▶</button>
+      </nav>
+    </section>
+
+    <!-- ============ 전투 (COMBAT) ============ -->
+    <section id="screen-combat" class="screen" aria-hidden="true">
+      <h1 class="screen__title">전투</h1>
+      <p class="screen__sub">6×6 턴제 교전. 돌연변이를 상대한다.</p>
+
+      <div class="enemy-card">
+        <span class="enemy-card__name" id="combat-enemy-name">—</span>
+        <span class="enemy-card__hp">HP <span id="combat-enemy-hp">—</span></span>
+      </div>
+
+      <div class="stat-row stat-row--wrap">
+        <div class="stat"><span class="stat__label">HP</span><span class="stat__value" id="combat-hp">—</span></div>
+        <div class="stat"><span class="stat__label">AP</span><span class="stat__value" id="combat-ap">—</span></div>
+        <div class="stat"><span class="stat__label">탄약</span><span class="stat__value" id="combat-ammo">—</span></div>
+        <div class="stat"><span class="stat__label">붕대</span><span class="stat__value" id="combat-bandage">—</span></div>
+      </div>
+
+      <p class="hint">6×6 그리드·행동 로직 (T3 에서 연결)</p>
+
+      <div class="screen__spacer"></div>
+
+      <nav class="nav">
+        <button class="btn btn--ghost" data-goto="SHELTER">쉼터로 ◀</button>
+      </nav>
+    </section>
+
+  </main>
+
+  <script src="js/state.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

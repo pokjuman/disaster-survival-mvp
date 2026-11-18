@@ -1,0 +1,161 @@
+/* ==========================================================================
+   재난생존 MVP — T1 스타일 (buildless, 외부 에셋 없음)
+   목표 미감: 어두운 배경 + 굵은 잉크 외곽선 + 네온 강조(셀셰이딩 느낌), 폰 가독성.
+   ========================================================================== */
+
+:root {
+  --ink: #0b0e10;          /* 배경(먹색) */
+  --ink-2: #14181c;        /* 패널 */
+  --line: #000000;         /* 굵은 외곽선 */
+  --paper: #e9eef2;        /* 밝은 글자 */
+  --muted: #8a99a6;        /* 보조 글자 */
+  --neon: #39ffb0;         /* 네온 강조(민트) */
+  --neon-2: #ff4d6d;       /* 경고/적 강조(핑크레드) */
+  --amber: #ffcf4d;        /* 소음/주의 */
+  --touch: 48px;           /* 최소 터치 타겟(>=44px) */
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--ink);
+  color: var(--paper);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", "Apple SD Gothic Neo", Roboto, sans-serif;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+  touch-action: manipulation; /* 더블탭 줌 지연 제거 */
+}
+
+/* 상단 바 ------------------------------------------------------------------ */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: var(--ink-2);
+  border-bottom: 3px solid var(--line);
+}
+.topbar__title {
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: var(--neon);
+  text-shadow: 0 0 8px rgba(57, 255, 176, 0.35);
+}
+.topbar__screen { font-size: 14px; color: var(--muted); }
+.topbar__screen strong { color: var(--paper); }
+
+/* 무대/화면 ---------------------------------------------------------------- */
+.stage {
+  position: relative;
+  min-height: calc(100vh - 54px);
+  padding: 20px 16px 28px;
+}
+
+.screen {
+  display: none;
+  flex-direction: column;
+  min-height: calc(100vh - 54px - 48px);
+  animation: fade 0.18s ease-out;
+}
+.screen.is-active { display: flex; }
+
+@keyframes fade {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.screen__title {
+  margin: 4px 0 2px;
+  font-size: 30px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  color: var(--paper);
+  text-shadow: 3px 3px 0 var(--line); /* 굵은 잉크 그림자(셀셰이딩 느낌) */
+}
+.screen__sub { margin: 0 0 18px; color: var(--muted); font-size: 15px; line-height: 1.5; }
+.screen__spacer { flex: 1 1 auto; }
+
+/* 상태 라벨 ---------------------------------------------------------------- */
+.stat-row { display: flex; gap: 10px; margin-bottom: 14px; }
+.stat-row--wrap { flex-wrap: wrap; }
+.stat {
+  flex: 1 1 0;
+  min-width: 68px;
+  background: var(--ink-2);
+  border: 2px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 8px;
+  text-align: center;
+}
+.stat__label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+.stat__value { display: block; font-size: 20px; font-weight: 800; color: var(--neon); }
+
+/* 소음 게이지 -------------------------------------------------------------- */
+.gauge {
+  height: 18px;
+  background: var(--ink-2);
+  border: 2px solid var(--line);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+.gauge__fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--amber), var(--neon-2));
+  transition: width 0.2s ease-out;
+}
+.hint { font-size: 12px; color: var(--muted); margin: 8px 0 0; font-style: italic; }
+
+/* 적 카드 ------------------------------------------------------------------ */
+.enemy-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--ink-2);
+  border: 2px solid var(--neon-2);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  box-shadow: 0 0 10px rgba(255, 77, 109, 0.2);
+}
+.enemy-card__name { font-weight: 800; color: var(--neon-2); }
+.enemy-card__hp { font-size: 14px; color: var(--paper); }
+
+/* 내비게이션 버튼 ---------------------------------------------------------- */
+.nav { display: flex; gap: 12px; }
+.nav--split .btn { flex: 1 1 0; }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: var(--touch);
+  padding: 14px 18px;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  border: 3px solid var(--line);
+  border-radius: 12px;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: transform 0.06s ease, filter 0.1s ease;
+}
+.btn:active { transform: translateY(2px); filter: brightness(1.1); }
+
+.btn--primary {
+  background: var(--neon);
+  color: var(--ink);
+  box-shadow: 0 4px 0 var(--line), 0 0 14px rgba(57, 255, 176, 0.3);
+}
+.btn--ghost {
+  background: var(--ink-2);
+  color: var(--paper);
+  box-shadow: 0 4px 0 var(--line);
+}
