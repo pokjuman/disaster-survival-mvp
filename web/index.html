@@ -22,11 +22,23 @@
       <h1 class="screen__title">쉼터</h1>
       <p class="screen__sub">임시 거처. 출정 준비를 한다.</p>
 
+      <!-- 휴대 로드아웃(전투로 들고 나가 그대로 되돌아온다) -->
+      <p class="section-label">휴대 로드아웃</p>
       <div class="stat-row">
         <div class="stat"><span class="stat__label">HP</span><span class="stat__value" id="shelter-hp">—</span></div>
         <div class="stat"><span class="stat__label">탄약</span><span class="stat__value" id="shelter-ammo">—</span></div>
         <div class="stat"><span class="stat__label">붕대</span><span class="stat__value" id="shelter-bandage">—</span></div>
       </div>
+
+      <!-- 창고(정산으로 쌓이는 메타 자원) -->
+      <p class="section-label">창고</p>
+      <div class="stat-row">
+        <div class="stat"><span class="stat__label">고철</span><span class="stat__value" id="shelter-scrap">0</span></div>
+        <div class="stat"><span class="stat__label">통조림</span><span class="stat__value" id="shelter-canned">0</span></div>
+      </div>
+
+      <!-- 직전 출정 정산 요약(귀환 후 표시) -->
+      <p class="report-line" id="shelter-report" aria-live="polite"></p>
 
       <div class="screen__spacer"></div>
 
@@ -60,17 +72,21 @@
 
       <!-- 수색 3방식 -->
       <div class="search-grid">
+        <!-- 소음/전리품 범위는 모두 시드 수치 (scavenge_noise_manager.gd) -->
         <button class="btn btn--search" data-search="SILENT">
           <span class="btn__head">조용히</span>
-          <span class="btn__sub">소음 낮음</span>
+          <span class="btn__sub">소음 6~10</span>
+          <span class="btn__sub">고철1~3·탄약1~2</span>
         </button>
         <button class="btn btn--search" data-search="FAST">
           <span class="btn__head">빠르게</span>
-          <span class="btn__sub">소음 중간</span>
+          <span class="btn__sub">소음 25~35</span>
+          <span class="btn__sub">고철3~6·탄약2~5·통조림40%</span>
         </button>
         <button class="btn btn--search" data-search="BREACH">
           <span class="btn__head">강행</span>
-          <span class="btn__sub">소음 높음</span>
+          <span class="btn__sub">소음 40~50</span>
+          <span class="btn__sub">고철5~8·탄약4~8·붕대1</span>
         </button>
       </div>
 
@@ -139,28 +155,32 @@
         <button class="btn btn--action" id="btn-first-aid" data-action="aid">
           <span class="btn__head">응급처치</span><span class="btn__sub">3 AP · 붕대 1</span>
         </button>
+        <!-- 근접: 탄약 0 대안(임의값 T4). 인접 시에만 활성. -->
+        <button class="btn btn--action" id="btn-melee" data-action="melee">
+          <span class="btn__head">근접</span><span class="btn__sub">2 AP · 인접</span>
+        </button>
         <button class="btn btn--action" id="btn-end-turn" data-action="end">
           <span class="btn__head">턴 종료</span><span class="btn__sub">적 턴 →</span>
+        </button>
+        <!-- 도주: 전투 이탈(임의값 T4). 처치 보상 없음, 전리품 유지. -->
+        <button class="btn btn--action btn--flee" id="btn-flee" data-action="flee">
+          <span class="btn__head">도주</span><span class="btn__sub">이탈 · 보상 없음</span>
         </button>
       </div>
 
       <!-- 전투 로그(시드 print 메시지 1줄) -->
       <p class="combat-log" id="combat-log" aria-live="polite">플레이어 턴 — 행동을 선택하세요.</p>
 
-      <!-- 승리/패배 결과 패널(기본 숨김) -->
+      <!-- 귀환 정산 패널: 승리/도주/패배 결과 요약 + 쉼터 복귀(기본 숨김) -->
       <div id="combat-result" class="result" role="alert" aria-hidden="true" hidden>
         <div class="result__title" id="combat-result-title">—</div>
         <div class="result__detail" id="combat-result-detail"></div>
         <nav class="nav">
-          <button class="btn btn--primary" data-goto="SHELTER">쉼터로 ◀</button>
+          <button class="btn btn--primary" id="btn-return-shelter">귀환 · 정산 ▶</button>
         </nav>
       </div>
 
       <div class="screen__spacer"></div>
-
-      <nav class="nav">
-        <button class="btn btn--ghost" data-goto="SHELTER">쉼터로 ◀</button>
-      </nav>
     </section>
 
   </main>

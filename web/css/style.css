@@ -407,3 +407,44 @@ html, body {
   color: var(--paper);
   box-shadow: 0 4px 0 var(--line);
 }
+
+/* 섹션 라벨(쉼터 로드아웃/창고 구분) ---------------------------------------- */
+.section-label {
+  margin: 2px 0 8px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+/* 직전 출정 정산 요약 라인(쉼터) ------------------------------------------- */
+.report-line {
+  min-height: 18px;
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--amber);
+  background: var(--ink-2);
+  border: 2px solid var(--line);
+  border-left: 4px solid var(--amber);
+  border-radius: 8px;
+}
+.report-line:empty { display: none; }
+
+/* 수색 버튼의 추가 힌트 줄(시드 범위) — 작게 */
+.btn--search .btn__sub + .btn__sub { margin-top: 1px; color: var(--muted); opacity: 0.85; }
+
+/* 도주 버튼 강조(이탈 — 경고색) ------------------------------------------- */
+.btn--flee .btn__head { color: var(--amber); }
+.btn--flee { border-color: var(--line); }
+
+/* 결과 패널 상세 줄(귀환 정산) -------------------------------------------- */
+.result__detail { display: flex; flex-direction: column; gap: 4px; }
+.result__line { font-size: 13px; line-height: 1.4; color: var(--paper); }
+.result.is-defeat .result__line { color: #f3c6cf; }
+
+/* 도주(이탈) 결과 패널 — 호박색 톤 */
+.result.is-flight { border-color: var(--amber); box-shadow: 0 0 18px rgba(255,207,77,0.35); }
+.result.is-flight .result__title { color: var(--amber); }
