@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <!-- 모바일 우선: 더블탭 줌/핀치 줌 차단으로 터치 내비 안정화 -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="theme-color" content="#0b0e10">
+  <title>재난생존 MVP — 프로토타입 골격</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <!-- 상단 바: 현재 화면 이름 표시 -->
+  <header class="topbar">
+    <span class="topbar__title">재난생존</span>
+    <span class="topbar__screen">현재: <strong id="current-screen-name">쉼터</strong></span>
+  </header>
+
+  <main class="stage">
+
+    <!-- ============ 쉼터 (SHELTER) ============ -->
+    <section id="screen-shelter" class="screen" aria-hidden="false">
+      <h1 class="screen__title">쉼터</h1>
+      <p class="screen__sub">임시 거처. 출정 준비를 한다.</p>
+
+      <!-- 휴대 로드아웃(전투로 들고 나가 그대로 되돌아온다) -->
+      <p class="section-label">휴대 로드아웃</p>
+      <div class="stat-row">
+        <div class="stat"><span class="stat__label">HP</span><span class="stat__value" id="shelter-hp">—</span></div>
+        <div class="stat"><span class="stat__label">탄약</span><span class="stat__value" id="shelter-ammo">—</span></div>
+        <div class="stat"><span class="stat__label">붕대</span><span class="stat__value" id="shelter-bandage">—</span></div>
+      </div>
+
+      <!-- 창고(정산으로 쌓이는 메타 자원) -->
+      <p class="section-label">창고</p>
+      <div class="stat-row">
+        <div class="stat"><span class="stat__label">고철</span><span class="stat__value" id="shelter-scrap">0</span></div>
+        <div class="stat"><span class="stat__label">통조림</span><span class="stat__value" id="shelter-canned">0</span></div>
+      </div>
+
+      <!-- 직전 출정 정산 요약(귀환 후 표시) -->
+      <p class="report-line" id="shelter-report" aria-live="polite"></p>
+
+      <div class="screen__spacer"></div>
+
+      <nav class="nav">
+        <button class="btn btn--primary" id="btn-sortie" data-goto="SCAVENGE">출정 ▶</button>
+      </nav>
+    </section>
+
+    <!-- ============ 탐사 (SCAVENGE) ============ -->
+    <section id="screen-scavenge" class="screen" aria-hidden="true">
+      <h1 class="screen__title">탐사</h1>
+      <p class="screen__sub">폐건물을 방 단위로 수색한다. 소음이 쌓이면 매복이 온다.</p>
+
+      <div class="stat-row">
+        <div class="stat"><span class="stat__label">방</span><span class="stat__value" id="scavenge-room">—</span></div>
+        <div class="stat"><span class="stat__label">소음</span><span class="stat__value" id="scavenge-noise-value">—</span></div>
+      </div>
+
+      <!-- 소음 게이지: 0→100 채움 + 75 매복 임계선 표시 -->
+      <div class="gauge" role="img" aria-label="소음 게이지">
+        <div class="gauge__fill" id="scavenge-noise-fill"></div>
+        <div class="gauge__threshold" aria-hidden="true"><span class="gauge__threshold-label">75</span></div>
+      </div>
+      <p class="hint">소음 75 이상 매복 45% · 100 도달 시 확정</p>
+
+      <!-- 매복 경보(기본 숨김 — 매복 트리거 시 노출) -->
+      <div id="scavenge-ambush" class="ambush" role="alert" aria-hidden="true" hidden>
+        <span class="ambush__icon" aria-hidden="true">⚠</span>
+        <span class="ambush__text">매복! <strong id="scavenge-ambush-name">—</strong> 이(가) 소음에 이끌려 접근했다.</span>
+      </div>
+
+      <!-- 수색 3방식 -->
+      <div class="search-grid">
+        <!-- 소음/전리품 범위는 모두 시드 수치 (scavenge_noise_manager.gd) -->
+        <button class="btn btn--search" data-search="SILENT">
+          <span class="btn__head">조용히</span>
+          <span class="btn__sub">소음 6~10</span>
+          <span class="btn__sub">고철1~3·탄약1~2</span>
+        </button>
+        <button class="btn btn--search" data-search="FAST">
+          <span class="btn__head">빠르게</span>
+          <span class="btn__sub">소음 25~35</span>
+          <span class="btn__sub">고철3~6·탄약2~5·통조림40%</span>
+        </button>
+        <button class="btn btn--search" data-search="BREACH">
+          <span class="btn__head">강행</span>
+          <span class="btn__sub">소음 40~50</span>
+          <span class="btn__sub">고철5~8·탄약4~8·붕대1</span>
+        </button>
+      </div>
+
+      <!-- 직전 수색 결과 -->
+      <p class="loot-line" id="scavenge-loot-line" aria-live="polite">수색 방식을 선택하세요.</p>
+
+      <!-- 현재 소지품(누적) -->
+      <div class="stat-row stat-row--wrap">
+        <div class="stat"><span class="stat__label">고철</span><span class="stat__value" id="inv-scrap">0</span></div>
+        <div class="stat"><span class="stat__label">탄약</span><span class="stat__value" id="inv-ammo">0</span></div>
+        <div class="stat"><span class="stat__label">통조림</span><span class="stat__value" id="inv-canned">0</span></div>
+        <div class="stat"><span class="stat__label">붕대</span><span class="stat__value" id="inv-bandage">0</span></div>
+      </div>
+
+      <div class="screen__spacer"></div>
+
+      <nav class="nav nav--split">
+        <button class="btn btn--ghost" data-goto="SHELTER">◀ 귀환</button>
+        <!-- 임의값(T2): 방 진행 버튼 — 시드엔 없음 -->
+        <button class="btn btn--ghost" id="btn-next-room">다음 방 ▶</button>
+      </nav>
+      <!-- 전투 진입: 매복 트리거 전엔 비활성. 전투 로직은 T3/T4. -->
+      <nav class="nav">
+        <button class="btn btn--primary" id="btn-enter-combat" data-goto="COMBAT" disabled>전투 진입 ▶</button>
+      </nav>
+    </section>
+
+    <!-- ============ 전투 (COMBAT) ============ -->
+    <section id="screen-combat" class="screen" aria-hidden="true">
+      <h1 class="screen__title">전투</h1>
+      <p class="screen__sub">6×6 턴제 교전. 인접 타일 탭으로 이동.</p>
+
+      <div class="enemy-card">
+        <span class="enemy-card__name" id="combat-enemy-name">—</span>
+        <span class="enemy-card__hp">HP <span id="combat-enemy-hp">—</span></span>
+      </div>
+      <!-- 적 HP 바 -->
+      <div class="hpbar hpbar--enemy"><div class="hpbar__fill" id="combat-enemy-hp-fill"></div></div>
+
+      <!-- 6×6 그리드 — 셀은 JS 가 생성 -->
+      <div class="grid-wrap">
+        <div class="grid" id="combat-grid" role="grid" aria-label="전투 그리드 6×6"></div>
+      </div>
+
+      <!-- AP 점 표시 + 수치 -->
+      <div class="ap-row">
+        <span class="ap-row__label">AP</span>
+        <span class="ap-dots" id="combat-ap-dots" aria-hidden="true"></span>
+        <span class="ap-row__value" id="combat-ap">—</span>
+      </div>
+
+      <div class="stat-row stat-row--wrap">
+        <div class="stat"><span class="stat__label">HP</span><span class="stat__value" id="combat-hp">—</span></div>
+        <div class="stat"><span class="stat__label">탄약</span><span class="stat__value" id="combat-ammo">—</span></div>
+        <div class="stat"><span class="stat__label">붕대</span><span class="stat__value" id="combat-bandage">—</span></div>
+      </div>
+
+      <!-- 행동 버튼 4종 -->
+      <div class="action-grid">
+        <button class="btn btn--action" id="btn-quick-shot" data-action="quick">
+          <span class="btn__head">속사</span><span class="btn__sub">2 AP · 탄약 1</span>
+        </button>
+        <button class="btn btn--action" id="btn-aimed-shot" data-action="aimed">
+          <span class="btn__head">조준사격</span><span class="btn__sub">4 AP · 탄약 1</span>
+        </button>
+        <button class="btn btn--action" id="btn-first-aid" data-action="aid">
+          <span class="btn__head">응급처치</span><span class="btn__sub">3 AP · 붕대 1</span>
+        </button>
+        <!-- 근접: 탄약 0 대안(임의값 T4). 인접 시에만 활성. -->
+        <button class="btn btn--action" id="btn-melee" data-action="melee">
+          <span class="btn__head">근접</span><span class="btn__sub">2 AP · 인접</span>
+        </button>
+        <button class="btn btn--action" id="btn-end-turn" data-action="end">
+          <span class="btn__head">턴 종료</span><span class="btn__sub">적 턴 →</span>
+        </button>
+        <!-- 도주: 전투 이탈(임의값 T4). 처치 보상 없음, 전리품 유지. -->
+        <button class="btn btn--action btn--flee" id="btn-flee" data-action="flee">
+          <span class="btn__head">도주</span><span class="btn__sub">이탈 · 보상 없음</span>
+        </button>
+      </div>
+
+      <!-- 전투 로그(시드 print 메시지 1줄) -->
+      <p class="combat-log" id="combat-log" aria-live="polite">플레이어 턴 — 행동을 선택하세요.</p>
+
+      <!-- 귀환 정산 패널: 승리/도주/패배 결과 요약 + 쉼터 복귀(기본 숨김) -->
+      <div id="combat-result" class="result" role="alert" aria-hidden="true" hidden>
+        <div class="result__title" id="combat-result-title">—</div>
+        <div class="result__detail" id="combat-result-detail"></div>
+        <nav class="nav">
+          <button class="btn btn--primary" id="btn-return-shelter">귀환 · 정산 ▶</button>
+        </nav>
+      </div>
+
+      <div class="screen__spacer"></div>
+    </section>
+
+  </main>
+
+  <script src="js/state.js"></script>
+  <script src="js/scavenge.js"></script>
+  <script src="js/combat.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
