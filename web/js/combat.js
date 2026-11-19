@@ -40,6 +40,12 @@
   var ENEMY_HP_READY = 70;   // 시드 _ready(): start_combat(..., 70) — 실제 구동값
   var ENEMY_HP_VAR = 65;     // 시드 var enemy_hp 기본값(덮어쓰기됨) — 참고용
 
+  // 탄약 0 대안 근접 공격 — 시드에 없음(T4 보완 규칙 "탄약 0일 때 근접 기본 행동").
+  // 사격보다 싸되(2 AP) 피해가 작고 인접해야만 가능 → 탄약이 떨어져도 교착되지 않게.
+  var MELEE_AP = 2;        // 임의값(T4): 근접 공격 AP 비용
+  var MELEE_DMG_MIN = 6;   // 임의값(T4): 근접 피해 하한
+  var MELEE_DMG_MAX = 12;  // 임의값(T4): 근접 피해 상한
+
   // 엄폐/위험 타입 — 시드 enum
   var CoverType = Object.freeze({ NONE: 0, HALF: 1, FULL: 2 });
   var HazardType = Object.freeze({ NONE: 0, RADIATION: 1, FIRE: 2, TOXIC: 3 });
@@ -125,8 +131,14 @@
       isPlayerTurn: true,  // 시드: is_player_turn (플레이어 선공 고정)
       ended: false,        // 전투 종료 여부
       victory: false,      // 승리/패배
+      fled: false,         // 도주로 종료됐는지(T4 보완 규칙)
       scrapReward: 0,      // 승리 시 고철 보상
     };
+
+    // 근접 공격 수치 — opts 로 덮어쓸 수 있게(기본은 위 상수)
+    var meleeAp = opts.meleeAp != null ? opts.meleeAp : MELEE_AP;
+    var meleeMin = opts.meleeDmgMin != null ? opts.meleeDmgMin : MELEE_DMG_MIN;
+    var meleeMax = opts.meleeDmgMax != null ? opts.meleeDmgMax : MELEE_DMG_MAX;
 
     var listeners = { ap: [], turn: [], ended: [], log: [], change: [] };
     function on(evt, cb) { if (listeners[evt]) listeners[evt].push(cb); }
@@ -222,6 +234,39 @@
       state.player.hp = Math.min(state.player.maxHp, state.player.hp + 35);
       emit('ap', state.ap, state.maxAp);
       log('🩹 [응급처치] 상처 지혈 및 HP 35 회복');
+      changed();
+      return true;
+    }
+
+    // 탄약 0 대안: 근접 공격 (임의값 T4) — 인접(맨해튼 1)해야 하고 탄약 불필요.
+    // 적 근접 전용이라 엄폐로 명중 차감하지 않음(항상 적중, 피해만 소량).
+    function actionMelee() {
+      if (state.ended) return false;
+      if (!state.isPlayerTurn || state.ap < meleeAp) return false;
+      var dist = manhattan(state.player.x, state.player.y, state.enemy.x, state.enemy.y);
+      if (dist !== 1) return false; // 인접해야 근접 공격 가능
+
+      state.ap -= meleeAp;
+      emit('ap', state.ap, state.maxAp);
+
+      var dmg = randiRange(meleeMin, meleeMax);
+      state.enemy.hp = Math.max(0, state.enemy.hp - dmg);
+      log('🔪 [근접 공격] ' + dmg + ' 피해! (적 남은 체력: ' + state.enemy.hp + ')');
+      checkBattleEnd();
+      changed();
+      return true;
+    }
+
+    // 도주/이탈 (임의값 T4) — 시드에 없음. 조건: 내 턴·전투 진행 중.
+    // 비용: 처치 보상(고철) 없음 + 출정 종료. 수집한 전리품·생존 스탯은 유지.
+    // (귀환 정산 분기는 app.js 가 state.fled 로 처리)
+    function flee() {
+      if (state.ended) return false;
+      if (!state.isPlayerTurn) return false;
+      state.ended = true;
+      state.victory = false;
+      state.fled = true;
+      log('🏃 도주 — 전투에서 이탈했다.');
       changed();
       return true;
     }
@@ -326,6 +371,8 @@
       actionQuickShot: actionQuickShot,
       actionAimedShot: actionAimedShot,
       actionFirstAid: actionFirstAid,
+      actionMelee: actionMelee,
+      flee: flee,
       endPlayerTurn: endPlayerTurn,
       executeEnemyTurn: executeEnemyTurn,
       checkBattleEnd: checkBattleEnd,
@@ -341,6 +388,9 @@
     ENEMY_NAME: ENEMY_NAME,
     ENEMY_HP_READY: ENEMY_HP_READY, // 70 (_ready 실제 구동값)
     ENEMY_HP_VAR: ENEMY_HP_VAR,     // 65 (var 기본값·덮어쓰기됨)
+    MELEE_AP: MELEE_AP,             // 임의값(T4)
+    MELEE_DMG_MIN: MELEE_DMG_MIN,   // 임의값(T4)
+    MELEE_DMG_MAX: MELEE_DMG_MAX,   // 임의값(T4)
     CoverType: CoverType,
     HazardType: HazardType,
     DEFAULT_COVERS: DEFAULT_COVERS,
